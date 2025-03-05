@@ -10,9 +10,9 @@ struct InvoiceBuddyApp: App {
             ContentView()
                 .environmentObject(dependencies.invoiceViewModel)
                 .environmentObject(dependencies.dashboardViewModel)
-                .environmentObject(dependencies.settingsViewModel)
                 .environmentObject(dependencies.scannerViewModel)
                 .environmentObject(dependencies.paymentMethodsViewModel)
+                .environmentObject(dependencies.settingsViewModel)
         }
     }
 }

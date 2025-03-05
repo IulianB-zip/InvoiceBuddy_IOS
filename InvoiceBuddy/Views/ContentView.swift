@@ -8,17 +8,34 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var invoiceViewModel: InvoiceViewModel
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            InvoiceListView()
+                .tabItem {
+                    Label("Invoices", systemImage: "doc.text")
+                }
+            
+            DashboardView()
+                .tabItem {
+                    Label("Dashboard", systemImage: "chart.bar")
+                }
+            
+            ScannerView()
+                .tabItem {
+                    Label("Scan", systemImage: "camera")
+                }
+            
+            PaymentMethodsView()
+                .tabItem {
+                    Label("Payment", systemImage: "creditcard")
+                }
+            
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
         }
-        .padding()
     }
-}
-
-#Preview {
-    ContentView()
 }
