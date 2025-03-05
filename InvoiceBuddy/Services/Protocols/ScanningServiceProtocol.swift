@@ -1,12 +1,4 @@
-//
-//  ScanningServiceProtocol.swift
-//  InvoiceBuddy
-//
-//  Created by Iulian Bucatariu on 06.03.2025.
-//
-
-
-// ScanningServiceProtocol.swift
+// Path: InvoiceBuddy/Services/Protocols/ScanningServiceProtocol.swift
 import Foundation
 import Combine
 import UIKit
