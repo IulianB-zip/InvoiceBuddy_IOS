@@ -1,57 +1,14 @@
-// InvoiceManager.xcdatamodeld
-/*
-This would be created using Xcode's Core Data model editor, but here's a representation
-of what the entities would look like:
+//
+//  CoreDataManager.swift
+//  InvoiceBuddy
+//
+//  Created by Iulian Bucatariu on 06.03.2025.
+//
 
-Entity: InvoiceEntity
-- id: UUID
-- title: String
-- description: String
-- amount: Double
-- dueDate: Date
-- status: String (enum stored as string)
-- paymentMethod: String (enum stored as string)
-- reminderDate: Date (optional)
-- barcode: String (optional)
-- qrData: String (optional)
-- notes: String (optional)
-- priority: Int16
-- isPaid: Bool
-- paymentDate: Date (optional)
-- associatedCardId: String (optional)
-
-Entity: CardEntity
-- id: UUID
-- name: String
-- type: String (enum stored as string)
-- lastFourDigits: String
-- expiryDate: Date
-- isDefault: Bool
-
-Entity: MonthSettingEntity
-- id: UUID
-- year: Int16
-- month: Int16
-- isCritical: Bool
-- isLowIncome: Bool
-- note: String (optional)
-- relationship to AnnualExpenseEntity (one-to-many)
-
-Entity: AnnualExpenseEntity
-- id: UUID
-- title: String
-- amount: Double
-- dueDate: Date
-- relationship to MonthSettingEntity (many-to-one)
-
-Entity: PaydayEntity
-- id: UUID
-- date: Date
-*/
-
-// CoreDataManager.swift
 import Foundation
 import CoreData
+
+// Rest of the file remains the same as in the original document
 
 class CoreDataManager {
     static let shared = CoreDataManager()
@@ -63,6 +20,24 @@ class CoreDataManager {
         persistentContainer.loadPersistentStores { description, error in
             if let error = error {
                 fatalError("Failed to load Core Data stack: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Core Data Context
+    
+    var viewContext: NSManagedObjectContext {
+        return persistentContainer.viewContext
+    }
+    
+    func saveContext() {
+        let context = persistentContainer.viewContext
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                let nsError = error as NSError
+                print("Error saving Core Data context: \(nsError), \(nsError.userInfo)")
             }
         }
     }
@@ -397,11 +372,11 @@ class CoreDataManager {
     
     // MARK: - Payday Methods
     
-    func savePayday(_ date: Date) {
+    func savePayday(_ payday: Payday) {
         let context = persistentContainer.viewContext
         let paydayEntity = PaydayEntity(context: context)
-        paydayEntity.id = UUID()
-        paydayEntity.date = date
+        paydayEntity.id = payday.id
+        paydayEntity.date = payday.date
         
         do {
             try context.save()
@@ -410,100 +385,37 @@ class CoreDataManager {
         }
     }
     
-    func fetchPaydays() -> [Date] {
+    func fetchPaydays() -> [Payday] {
         let context = persistentContainer.viewContext
         let fetchRequest: NSFetchRequest<PaydayEntity> = PaydayEntity.fetchRequest()
         
         do {
             let entities = try context.fetch(fetchRequest)
-            return entities.compactMap { $0.date }
+            return entities.map { entity in
+                Payday(
+                    id: entity.id ?? UUID(),
+                    date: entity.date ?? Date()
+                )
+            }
         } catch {
             print("Failed to fetch paydays: \(error.localizedDescription)")
             return []
         }
     }
     
-    func deletePayday(date: Date) {
+    func deletePayday(id: UUID) {
         let context = persistentContainer.viewContext
         let fetchRequest: NSFetchRequest<PaydayEntity> = PaydayEntity.fetchRequest()
-        
-        // Create a predicate that matches dates on the same day
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        let predicate = NSPredicate(format: "date >= %@ AND date < %@", startOfDay as NSDate, endOfDay as NSDate)
-        fetchRequest.predicate = predicate
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         
         do {
             let results = try context.fetch(fetchRequest)
-            for entity in results {
-                context.delete(entity)
+            if let paydayEntity = results.first {
+                context.delete(paydayEntity)
+                try context.save()
             }
-            try context.save()
         } catch {
             print("Failed to delete payday: \(error.localizedDescription)")
         }
-    }
-}
-
-// Implement DataManager methods to use CoreDataManager
-extension DataManager {
-    func loadInvoices() {
-        invoices = CoreDataManager.shared.fetchInvoices()
-    }
-    
-    func saveInvoice(_ invoice: Invoice) {
-        CoreDataManager.shared.saveInvoice(invoice)
-        loadInvoices()
-        
-        // Schedule notification
-        scheduleReminderForInvoice(invoice)
-    }
-    
-    func deleteInvoice(at offsets: IndexSet) {
-        for index in offsets {
-            let invoice = invoices[index]
-            CoreDataManager.shared.deleteInvoice(id: invoice.id)
-        }
-        loadInvoices()
-    }
-    
-    func loadCards() {
-        userCards = CoreDataManager.shared.fetchCards()
-    }
-    
-    func saveCard(_ card: Card) {
-        CoreDataManager.shared.saveCard(card)
-        loadCards()
-    }
-    
-    func deleteCard(at offsets: IndexSet) {
-        for index in offsets {
-            let card = userCards[index]
-            CoreDataManager.shared.deleteCard(id: card.id)
-        }
-        loadCards()
-    }
-    
-    func loadMonthSettings() {
-        monthSettings = CoreDataManager.shared.fetchMonthSettings()
-    }
-    
-    func saveMonthSetting(_ setting: MonthSetting) {
-        CoreDataManager.shared.saveMonthSetting(setting)
-        loadMonthSettings()
-    }
-    
-    func loadPaydays() -> [Date] {
-        return CoreDataManager.shared.fetchPaydays()
-    }
-    
-    func savePayday(_ date: Date) {
-        CoreDataManager.shared.savePayday(date)
-    }
-    
-    func deletePayday(_ date: Date) {
-        CoreDataManager.shared.deletePayday(date: date)
     }
 }

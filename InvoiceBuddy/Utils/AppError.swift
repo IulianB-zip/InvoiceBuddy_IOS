@@ -6,8 +6,8 @@
 //
 
 
-// AppError.swift
 import Foundation
+import SwiftUI
 
 enum AppError: Error, LocalizedError {
     case databaseError(String)
@@ -32,40 +32,4 @@ enum AppError: Error, LocalizedError {
     }
 }
 
-// ErrorHandling.swift
-import Foundation
-import SwiftUI
 
-struct ErrorAlert: Identifiable {
-    var id = UUID()
-    var title: String
-    var message: String
-    var dismissAction: (() -> Void)? = nil
-}
-
-extension View {
-    func withErrorHandling(error: Binding<Error?>, action: @escaping () -> Void = {}) -> some View {
-        let errorAlert = Binding<ErrorAlert?>(
-            get: {
-                guard let error = error.wrappedValue else { return nil }
-                return ErrorAlert(
-                    title: "Error",
-                    message: error.localizedDescription,
-                    dismissAction: {
-                        error.wrappedValue = nil
-                        action()
-                    }
-                )
-            },
-            set: { _ in error.wrappedValue = nil }
-        )
-        
-        return alert(item: errorAlert) { alert in
-            Alert(
-                title: Text(alert.title),
-                message: Text(alert.message),
-                dismissButton: .default(Text("OK"), action: alert.dismissAction)
-            )
-        }
-    }
-}

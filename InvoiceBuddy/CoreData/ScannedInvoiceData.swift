@@ -6,10 +6,15 @@
 //
 
 
-// ScannedInvoiceData.swift
+
+
+
+
+
+// ScannedData.swift
 import Foundation
 
-struct ScannedInvoiceData {
+struct ScannedInvoiceData: Equatable {
     var rawData: String
     var title: String?
     var description: String?
@@ -23,6 +28,16 @@ struct ScannedInvoiceData {
         self.barcode = rawData
         self.qrData = rawData
         parseData()
+    }
+    
+    static func == (lhs: ScannedInvoiceData, rhs: ScannedInvoiceData) -> Bool {
+        return lhs.rawData == rhs.rawData &&
+               lhs.title == rhs.title &&
+               lhs.description == rhs.description &&
+               lhs.amount == rhs.amount &&
+               lhs.dueDate == rhs.dueDate &&
+               lhs.barcode == rhs.barcode &&
+               lhs.qrData == rhs.qrData
     }
     
     mutating func parseData() {
