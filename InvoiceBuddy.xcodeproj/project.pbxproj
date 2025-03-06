@@ -29,22 +29,9 @@
 		F8C969852D79040100E77C62 /* InvoiceBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InvoiceBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		F8CD1D212D79DF89006622C5 /* Exceptions for "InvoiceBuddy" folder in "InvoiceBuddy" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = F8C9696A2D7903FF00E77C62 /* InvoiceBuddy */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		F8C9696D2D7903FF00E77C62 /* InvoiceBuddy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				F8CD1D212D79DF89006622C5 /* Exceptions for "InvoiceBuddy" folder in "InvoiceBuddy" target */,
-			);
 			path = InvoiceBuddy;
 			sourceTree = "<group>";
 		};
