@@ -5,12 +5,6 @@
 //  Created by Iulian Bucatariu on 06.03.2025.
 //
 
-
-
-
-
-
-
 // ScannedData.swift
 import Foundation
 
