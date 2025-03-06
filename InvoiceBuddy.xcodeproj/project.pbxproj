@@ -29,9 +29,22 @@
 		F8C969852D79040100E77C62 /* InvoiceBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InvoiceBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F8CD1D212D79DF89006622C5 /* Exceptions for "InvoiceBuddy" folder in "InvoiceBuddy" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F8C9696A2D7903FF00E77C62 /* InvoiceBuddy */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		F8C9696D2D7903FF00E77C62 /* InvoiceBuddy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F8CD1D212D79DF89006622C5 /* Exceptions for "InvoiceBuddy" folder in "InvoiceBuddy" target */,
+			);
 			path = InvoiceBuddy;
 			sourceTree = "<group>";
 		};
@@ -405,10 +418,20 @@
 				DEVELOPMENT_ASSET_PATHS = "\"InvoiceBuddy/Preview Content\"";
 				DEVELOPMENT_TEAM = 6TDKSH49LP;
 				ENABLE_PREVIEWS = YES;
+<<<<<<< HEAD
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/iulianb/WorkingDirectory/InvoiceBuddy/InvoiceBuddy/info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = InvoiceBuddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+=======
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InvoiceBuddy/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+>>>>>>> newfresh
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -434,10 +457,20 @@
 				DEVELOPMENT_ASSET_PATHS = "\"InvoiceBuddy/Preview Content\"";
 				DEVELOPMENT_TEAM = 6TDKSH49LP;
 				ENABLE_PREVIEWS = YES;
+<<<<<<< HEAD
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/iulianb/WorkingDirectory/InvoiceBuddy/InvoiceBuddy/info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = InvoiceBuddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+=======
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InvoiceBuddy/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+>>>>>>> newfresh
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
