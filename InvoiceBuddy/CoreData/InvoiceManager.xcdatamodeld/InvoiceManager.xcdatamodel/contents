@@ -17,7 +17,8 @@
     </entity>
     <entity name="InvoiceEntity" representedClassName="InvoiceEntity" syncable="YES" codeGenerationType="class">
         <attribute name="amount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <attribute name="associatedCard" optional="YES" attributeType="String"/>
+        <attribute name="associatedCardId" optional="YES" attributeType="String"/>
+        <attribute name="barcode" optional="YES" attributeType="String"/>
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="invoiceDescription" optional="YES" attributeType="String"/>
@@ -27,7 +28,7 @@
         <attribute name="paymentMethod" optional="YES" attributeType="String"/>
         <attribute name="priority" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="qrData" optional="YES" attributeType="String"/>
-        <attribute name="reminderData" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="reminderDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="status" optional="YES" attributeType="String"/>
         <attribute name="title" optional="YES" attributeType="String"/>
     </entity>
@@ -40,7 +41,7 @@
         <attribute name="year" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="annualExpenses" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="AnnualExpenseEntity" inverseName="monthSetting" inverseEntity="AnnualExpenseEntity"/>
     </entity>
-    <entity name="PayEntity" representedClassName="PayEntity" syncable="YES" codeGenerationType="class">
+    <entity name="PaydayEntity" representedClassName="PaydayEntity" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
     </entity>
