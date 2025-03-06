@@ -1,17 +1,8 @@
-//
-//  ScannerView.swift
-//  InvoiceBuddy
-//
-//  Created by Iulian Bucatariu on 05.03.2025.
-//
-
-
-// QRCodeScanner.swift
+// ScannerView.swift
 import SwiftUI
 import AVFoundation
 import Vision
 
-// Improved ScannerView with support for both QR codes and barcodes
 struct ScannerView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var isScanning = false
@@ -85,7 +76,7 @@ struct ScannerView: View {
                             .padding(.horizontal)
                         
                         Button(action: {
-                            isScanning = true
+                            checkCameraPermission()
                         }) {
                             Text("Start Scanning")
                                 .font(.headline)
@@ -135,6 +126,30 @@ struct ScannerView: View {
                     showError = true
                 }
             }
+        }
+    }
+    
+    private func checkCameraPermission() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            // Permission already granted
+            isScanning = true
+        case .notDetermined:
+            // Request permission
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        isScanning = true
+                    } else {
+                        errorMessage = "Camera permission is required to scan invoices"
+                    }
+                }
+            }
+        case .denied, .restricted:
+            // Permission denied
+            errorMessage = "Camera permission is required. Please enable it in Settings"
+        @unknown default:
+            errorMessage = "Unknown camera permission error"
         }
     }
 }
@@ -192,148 +207,6 @@ struct ScanFrameView: View {
                     )
                 }
                 .stroke(Color.green, lineWidth: 5)
-            }
-        }
-    }
-}
-
-// Data structure for scanned invoice data
-struct ScannedInvoiceData {
-    var rawData: String
-    var title: String?
-    var description: String?
-    var amount: Double?
-    var dueDate: Date?
-    var barcode: String?
-    var qrData: String?
-    
-    init(rawData: String) {
-        self.rawData = rawData
-        self.barcode = rawData
-        self.qrData = rawData
-        parseData()
-    }
-    
-    mutating func parseData() {
-        // Try to parse as JSON first
-        if let jsonData = rawData.data(using: .utf8) {
-            do {
-                if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                    self.title = json["title"] as? String
-                    self.description = json["description"] as? String
-                    
-                    if let amountString = json["amount"] as? String {
-                        self.amount = Double(amountString)
-                    } else {
-                        self.amount = json["amount"] as? Double
-                    }
-                    
-                    if let dueDateString = json["dueDate"] as? String {
-                        let dateFormatter = DateFormatter()
-                        // Try multiple date formats
-                        let dateFormats = ["yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd"]
-                        
-                        for format in dateFormats {
-                            dateFormatter.dateFormat = format
-                            if let date = dateFormatter.date(from: dueDateString) {
-                                self.dueDate = date
-                                break
-                            }
-                        }
-                    }
-                    return
-                }
-            } catch {
-                // Not valid JSON, continue with other parsing methods
-            }
-        }
-        
-        // Try to parse as key-value pairs (e.g., "title=Electric Bill&amount=75.50&due=2023-04-15")
-        let components = rawData.components(separatedBy: "&")
-        
-        for component in components {
-            let keyValue = component.components(separatedBy: "=")
-            if keyValue.count == 2 {
-                let key = keyValue[0].lowercased()
-                let value = keyValue[1]
-                
-                switch key {
-                case "title":
-                    self.title = value
-                case "description", "desc":
-                    self.description = value
-                case "amount", "amt":
-                    self.amount = Double(value)
-                case "due", "duedate":
-                    let dateFormatter = DateFormatter()
-                    // Try multiple date formats
-                    let dateFormats = ["yyyy-MM-dd", "MM/dd/yyyy", "dd/MM/yyyy", "yyyy/MM/dd"]
-                    
-                    for format in dateFormats {
-                        dateFormatter.dateFormat = format
-                        if let date = dateFormatter.date(from: value) {
-                            self.dueDate = date
-                            break
-                        }
-                    }
-                default:
-                    break
-                }
-            }
-        }
-        
-        // If still no structured data found, try to extract information from text
-        if title == nil && description == nil && amount == nil && dueDate == nil {
-            extractInformationFromText()
-        }
-    }
-    
-    mutating func extractInformationFromText() {
-        // Look for amount patterns (e.g., $123.45, 123.45 USD)
-        let amountPattern = #"\$?(\d+(\.\d{1,2})?)\s*(USD|EUR|GBP)?"#
-        if let amountMatch = rawData.range(of: amountPattern, options: .regularExpression) {
-            let amountString = rawData[amountMatch].replacingOccurrences(of: "$", with: "")
-                .replacingOccurrences(of: "USD", with: "")
-                .replacingOccurrences(of: "EUR", with: "")
-                .replacingOccurrences(of: "GBP", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            self.amount = Double(amountString)
-        }
-        
-        // Look for date patterns
-        let datePatterns = [
-            #"\d{2}/\d{2}/\d{4}"#, // MM/DD/YYYY or DD/MM/YYYY
-            #"\d{4}-\d{2}-\d{2}"#, // YYYY-MM-DD
-            #"\d{2}-\d{2}-\d{4}"#  // MM-DD-YYYY or DD-MM-YYYY
-        ]
-        
-        for pattern in datePatterns {
-            if let dateMatch = rawData.range(of: pattern, options: .regularExpression) {
-                let dateString = String(rawData[dateMatch])
-                let dateFormatter = DateFormatter()
-                
-                if pattern == #"\d{2}/\d{2}/\d{4}"# {
-                    dateFormatter.dateFormat = "MM/dd/yyyy" // Assuming MM/DD/YYYY format
-                } else if pattern == #"\d{4}-\d{2}-\d{2}"# {
-                    dateFormatter.dateFormat = "yyyy-MM-dd"
-                } else {
-                    dateFormatter.dateFormat = "MM-dd-yyyy" // Assuming MM-DD-YYYY format
-                }
-                
-                if let date = dateFormatter.date(from: dateString) {
-                    self.dueDate = date
-                    break
-                }
-            }
-        }
-        
-        // Set a generic title if none was found
-        if self.title == nil {
-            if rawData.count > 30 {
-                self.title = "Scanned Invoice"
-                self.description = String(rawData.prefix(100))
-            } else {
-                self.title = rawData
             }
         }
     }
@@ -472,7 +345,7 @@ class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDel
         }
     }
     
-    func metadataOutput(_ output: AVMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         if let metadataObject = metadataObjects.first,
            let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
            let stringValue = readableObject.stringValue {
@@ -495,27 +368,235 @@ class ScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDel
             captureSession?.stopRunning()
         }
     }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.layer.bounds
+    }
 }
 
-// Modified AddInvoiceView to accept the new ScannedInvoiceData type
-extension AddInvoiceView {
-    init(prefillData: ScannedInvoiceData? = nil) {
-        _title = State(initialValue: prefillData?.title ?? "")
-        _description = State(initialValue: prefillData?.description ?? "")
-        _amount = State(initialValue: prefillData?.amount != nil ? String(format: "%.2f", prefillData!.amount!) : "")
-        _dueDate = State(initialValue: prefillData?.dueDate ?? Date())
-        
-        // Set reminder to 1 day before due date
-        let reminderDefault = prefillData?.dueDate != nil ? 
-            Calendar.current.date(byAdding: .day, value: -1, to: prefillData!.dueDate!) ?? Date() : 
-            Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        
-        _reminderDate = State(initialValue: reminderDefault)
-        _barcode = State(initialValue: prefillData?.barcode)
-        _qrData = State(initialValue: prefillData?.qrData)
+// PaymentMethodsView.swift
+import SwiftUI
+
+struct PaymentMethodsView: View {
+    @EnvironmentObject var dataManager: DataManager
+    @State private var showingAddCard = false
+    
+    var body: some View {
+        NavigationView {
+            List {
+                Section(header: Text("My Cards")) {
+                    ForEach(dataManager.userCards) { card in
+                        CardRow(card: card)
+                    }
+                    .onDelete(perform: dataManager.deleteCard)
+                    
+                    Button(action: {
+                        showingAddCard = true
+                    }) {
+                        Label("Add New Card", systemImage: "plus")
+                    }
+                }
+                
+                Section(header: Text("Payment Methods")) {
+                    ForEach(PaymentMethod.allCases, id: \.self) { method in
+                        HStack {
+                            Text(method.rawValue)
+                            Spacer()
+                            
+                            if countInvoices(using: method) > 0 {
+                                Text("\(countInvoices(using: method)) invoices")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Payment Methods")
+            .sheet(isPresented: $showingAddCard) {
+                AddCardView()
+                    .environmentObject(dataManager)
+            }
+            .onAppear {
+                dataManager.loadCards()
+            }
+        }
     }
     
-    // Add these properties to the view
-    @State private var barcode: String?
-    @State private var qrData: String?
+    func countInvoices(using method: PaymentMethod) -> Int {
+        return dataManager.invoices.filter { $0.paymentMethod == method }.count
+    }
+}
+
+struct CardRow: View {
+    var card: Card
+    
+    var body: some View {
+        HStack {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(cardColor)
+                    .frame(width: 40, height: 25)
+                
+                Image(systemName: "creditcard")
+                    .foregroundColor(.white)
+                    .font(.system(size: 16))
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(card.name)
+                    .font(.headline)
+                
+                Text(card.maskedNumber)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(card.type.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text("Exp: \(card.formattedExpiryDate)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            if card.isDefault {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.blue)
+                    .padding(.leading, 4)
+            }
+        }
+    }
+    
+    var cardColor: Color {
+        switch card.type {
+        case .credit:
+            return .blue
+        case .debit:
+            return .green
+        }
+    }
+}
+
+struct AddCardView: View {
+    @EnvironmentObject var dataManager: DataManager
+    @Environment(\.presentationMode) var presentationMode
+    
+    @State private var cardName = ""
+    @State private var cardType: CardType = .credit
+    @State private var lastFourDigits = ""
+    @State private var expiryDate = Date()
+    @State private var isDefault = false
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Card Details")) {
+                    TextField("Card Name (e.g. Chase Visa)", text: $cardName)
+                    
+                    Picker("Card Type", selection: $cardType) {
+                        ForEach(CardType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    
+                    TextField("Last 4 Digits", text: $lastFourDigits)
+                        .keyboardType(.numberPad)
+                        .onChange(of: lastFourDigits) { newValue in
+                            if newValue.count > 4 {
+                                lastFourDigits = String(newValue.prefix(4))
+                            }
+                            
+                            // Filter non-numeric characters
+                            lastFourDigits = newValue.filter { "0123456789".contains($0) }
+                        }
+                    
+                    DatePicker("Expiry Date", selection: $expiryDate, displayedComponents: .date)
+                    
+                    Toggle("Set as Default", isOn: $isDefault)
+                }
+                
+                Section(footer: Text("Setting a card as default will use it for new invoices when applicable")) {
+                    // Card preview
+                    HStack {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(cardType == .credit ? Color.blue : Color.green)
+                                .frame(height: 120)
+                            
+                            VStack {
+                                HStack {
+                                    Text(cardName.isEmpty ? "Card Name" : cardName)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Text(cardType.rawValue)
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                
+                                Spacer()
+                                
+                                HStack {
+                                    Text("**** **** **** \(lastFourDigits.isEmpty ? "0000" : lastFourDigits)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                }
+                                
+                                HStack {
+                                    Spacer()
+                                    VStack(alignment: .trailing) {
+                                        Text("Expires")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.8))
+                                        
+                                        let formatter = DateFormatter()
+                                        formatter.dateFormat = "MM/yy"
+                                        Text(formatter.string(from: expiryDate))
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                            }
+                            .padding()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Card")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        saveCard()
+                    }
+                    .disabled(cardName.isEmpty || lastFourDigits.count < 4)
+                }
+            }
+        }
+    }
+    
+    private func saveCard() {
+        let card = Card(
+            name: cardName,
+            type: cardType,
+            lastFourDigits: lastFourDigits,
+            expiryDate: expiryDate,
+            isDefault: isDefault
+        )
+        
+        dataManager.saveCard(card)
+        presentationMode.wrappedValue.dismiss()
+    }
 }

@@ -1,53 +1,10 @@
-// InvoiceManager.xcdatamodeld
-/*
-This would be created using Xcode's Core Data model editor, but here's a representation
-of what the entities would look like:
+//
+//  CoreDataManager.swift
+//  InvoiceBuddy
+//
+//  Created by Iulian Bucatariu on 06.03.2025.
+//
 
-Entity: InvoiceEntity
-- id: UUID
-- title: String
-- description: String
-- amount: Double
-- dueDate: Date
-- status: String (enum stored as string)
-- paymentMethod: String (enum stored as string)
-- reminderDate: Date (optional)
-- barcode: String (optional)
-- qrData: String (optional)
-- notes: String (optional)
-- priority: Int16
-- isPaid: Bool
-- paymentDate: Date (optional)
-- associatedCardId: String (optional)
-
-Entity: CardEntity
-- id: UUID
-- name: String
-- type: String (enum stored as string)
-- lastFourDigits: String
-- expiryDate: Date
-- isDefault: Bool
-
-Entity: MonthSettingEntity
-- id: UUID
-- year: Int16
-- month: Int16
-- isCritical: Bool
-- isLowIncome: Bool
-- note: String (optional)
-- relationship to AnnualExpenseEntity (one-to-many)
-
-Entity: AnnualExpenseEntity
-- id: UUID
-- title: String
-- amount: Double
-- dueDate: Date
-- relationship to MonthSettingEntity (many-to-one)
-
-Entity: PaydayEntity
-- id: UUID
-- date: Date
-*/
 
 // CoreDataManager.swift
 import Foundation
@@ -63,6 +20,24 @@ class CoreDataManager {
         persistentContainer.loadPersistentStores { description, error in
             if let error = error {
                 fatalError("Failed to load Core Data stack: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Core Data Context
+    
+    var viewContext: NSManagedObjectContext {
+        return persistentContainer.viewContext
+    }
+    
+    func saveContext() {
+        let context = persistentContainer.viewContext
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                let nsError = error as NSError
+                print("Error saving Core Data context: \(nsError), \(nsError.userInfo)")
             }
         }
     }
@@ -397,11 +372,11 @@ class CoreDataManager {
     
     // MARK: - Payday Methods
     
-    func savePayday(_ date: Date) {
+    func savePayday(_ payday: Payday) {
         let context = persistentContainer.viewContext
         let paydayEntity = PaydayEntity(context: context)
-        paydayEntity.id = UUID()
-        paydayEntity.date = date
+        paydayEntity.id = payday.id
+        paydayEntity.date = payday.date
         
         do {
             try context.save()
@@ -410,47 +385,75 @@ class CoreDataManager {
         }
     }
     
-    func fetchPaydays() -> [Date] {
+    func fetchPaydays() -> [Payday] {
         let context = persistentContainer.viewContext
         let fetchRequest: NSFetchRequest<PaydayEntity> = PaydayEntity.fetchRequest()
         
         do {
             let entities = try context.fetch(fetchRequest)
-            return entities.compactMap { $0.date }
+            return entities.map { entity in
+                Payday(
+                    id: entity.id ?? UUID(),
+                    date: entity.date ?? Date()
+                )
+            }
         } catch {
             print("Failed to fetch paydays: \(error.localizedDescription)")
             return []
         }
     }
     
-    func deletePayday(date: Date) {
+    func deletePayday(id: UUID) {
         let context = persistentContainer.viewContext
         let fetchRequest: NSFetchRequest<PaydayEntity> = PaydayEntity.fetchRequest()
-        
-        // Create a predicate that matches dates on the same day
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        let predicate = NSPredicate(format: "date >= %@ AND date < %@", startOfDay as NSDate, endOfDay as NSDate)
-        fetchRequest.predicate = predicate
+        fetchRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         
         do {
             let results = try context.fetch(fetchRequest)
-            for entity in results {
-                context.delete(entity)
+            if let paydayEntity = results.first {
+                context.delete(paydayEntity)
+                try context.save()
             }
-            try context.save()
         } catch {
             print("Failed to delete payday: \(error.localizedDescription)")
         }
     }
 }
 
-// Implement DataManager methods to use CoreDataManager
-extension DataManager {
+// DataManager.swift
+import Foundation
+import SwiftUI
+import Combine
+
+class DataManager: ObservableObject {
+    @Published var invoices: [Invoice] = []
+    @Published var userCards: [Card] = []
+    @Published var monthSettings: [MonthSetting] = []
+    @Published var paydays: [Payday] = []
+    @Published var isLoading = false
+    
+    private var cancellables = Set<AnyCancellable>()
+    
+    init() {
+        loadAll()
+    }
+    
+    func loadAll() {
+        isLoading = true
+        
+        loadInvoices()
+        loadCards()
+        loadMonthSettings()
+        loadPaydays()
+        
+        isLoading = false
+    }
+    
+    // MARK: - Invoice Methods
+    
     func loadInvoices() {
         invoices = CoreDataManager.shared.fetchInvoices()
+        updateInvoiceStatuses()
     }
     
     func saveInvoice(_ invoice: Invoice) {
@@ -465,9 +468,31 @@ extension DataManager {
         for index in offsets {
             let invoice = invoices[index]
             CoreDataManager.shared.deleteInvoice(id: invoice.id)
+            
+            // Cancel any scheduled notifications
+            cancelNotificationForInvoice(invoice)
         }
         loadInvoices()
     }
+    
+    func updateInvoiceStatuses() {
+        let today = Date()
+        var updated = false
+        
+        for i in 0..<invoices.count {
+            if invoices[i].dueDate < today && invoices[i].status == .pending {
+                invoices[i].status = .overdue
+                CoreDataManager.shared.updateInvoice(invoices[i])
+                updated = true
+            }
+        }
+        
+        if updated {
+            loadInvoices()
+        }
+    }
+    
+    // MARK: - Card Methods
     
     func loadCards() {
         userCards = CoreDataManager.shared.fetchCards()
@@ -486,6 +511,8 @@ extension DataManager {
         loadCards()
     }
     
+    // MARK: - Month Settings Methods
+    
     func loadMonthSettings() {
         monthSettings = CoreDataManager.shared.fetchMonthSettings()
     }
@@ -495,15 +522,143 @@ extension DataManager {
         loadMonthSettings()
     }
     
-    func loadPaydays() -> [Date] {
-        return CoreDataManager.shared.fetchPaydays()
+    // MARK: - Payday Methods
+    
+    func loadPaydays() {
+        paydays = CoreDataManager.shared.fetchPaydays()
     }
     
-    func savePayday(_ date: Date) {
-        CoreDataManager.shared.savePayday(date)
+    func savePayday(_ payday: Payday) {
+        CoreDataManager.shared.savePayday(payday)
+        loadPaydays()
     }
     
-    func deletePayday(_ date: Date) {
-        CoreDataManager.shared.deletePayday(date: date)
+    func deletePayday(_ id: UUID) {
+        CoreDataManager.shared.deletePayday(id: id)
+        loadPaydays()
+    }
+    
+    // MARK: - Notification Methods
+    
+    func scheduleReminderForInvoice(_ invoice: Invoice) {
+        guard let reminderDate = invoice.reminderDate else { return }
+        
+        let notificationCenter = UNUserNotificationCenter.current()
+        
+        // Request authorization if not already granted
+        notificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if !granted || error != nil {
+                print("Notification permission not granted or error: \(error?.localizedDescription ?? "Unknown")")
+                return
+            }
+            
+            // Create notification content
+            let content = UNMutableNotificationContent()
+            content.title = "Invoice Payment Reminder"
+            content.body = "\(invoice.title) is due soon. Amount: \(invoice.formattedAmount)"
+            content.sound = .default
+            
+            // Create trigger based on reminder date
+            let calendar = Calendar.current
+            let dateComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+            
+            // Create request
+            let request = UNNotificationRequest(
+                identifier: "invoice-\(invoice.id.uuidString)",
+                content: content,
+                trigger: trigger
+            )
+            
+            // Add request to notification center
+            notificationCenter.add(request) { error in
+                if let error = error {
+                    print("Error scheduling notification: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    func cancelNotificationForInvoice(_ invoice: Invoice) {
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: ["invoice-\(invoice.id.uuidString)"])
+    }
+    
+    // MARK: - Payment Prioritization
+    
+    func getPrioritizedInvoices() -> [Invoice] {
+        // Sort pending invoices by due date, then by priority
+        return invoices
+            .filter { $0.status == .pending }
+            .sorted { first, second in
+                if first.dueDate == second.dueDate {
+                    return first.priority > second.priority
+                }
+                return first.dueDate < second.dueDate
+            }
+    }
+    
+    func getOverdueInvoices() -> [Invoice] {
+        return invoices.filter { $0.status == .overdue }
+            .sorted { $0.dueDate < $1.dueDate }
+    }
+    
+    func getPaidInvoices() -> [Invoice] {
+        return invoices.filter { $0.status == .paid }
+            .sorted { $0.paymentDate ?? Date() > $1.paymentDate ?? Date() }
+    }
+    
+    func getUpcomingInvoices(limit: Int = 10) -> [Invoice] {
+        return invoices
+            .filter { $0.status == .pending }
+            .sorted { $0.dueDate < $1.dueDate }
+            .prefix(limit)
+            .map { $0 }
+    }
+    
+    func getTotalDueThisMonth() -> Double {
+        let calendar = Calendar.current
+        let currentMonth = calendar.component(.month, from: Date())
+        let currentYear = calendar.component(.year, from: Date())
+        
+        return invoices
+            .filter { invoice in
+                let month = calendar.component(.month, from: invoice.dueDate)
+                let year = calendar.component(.year, from: invoice.dueDate)
+                return month == currentMonth && year == currentYear && invoice.status != .paid
+            }
+            .reduce(0) { $0 + $1.amount }
+    }
+    
+    func getInvoicesForMonth(month: Int, year: Int) -> [Invoice] {
+        let calendar = Calendar.current
+        
+        return invoices.filter { invoice in
+            let invoiceMonth = calendar.component(.month, from: invoice.dueDate)
+            let invoiceYear = calendar.component(.year, from: invoice.dueDate)
+            return invoiceMonth == month && invoiceYear == year
+        }
+    }
+    
+    func isMonthCritical(month: Int, year: Int) -> Bool {
+        return monthSettings.contains { setting in
+            setting.month == month && setting.year == year && setting.isCritical
+        }
+    }
+    
+    func isMonthLowIncome(month: Int, year: Int) -> Bool {
+        return monthSettings.contains { setting in
+            setting.month == month && setting.year == year && setting.isLowIncome
+        }
+    }
+    
+    func markInvoiceAsPaid(_ invoice: Invoice) {
+        var updatedInvoice = invoice
+        updatedInvoice.status = .paid
+        updatedInvoice.isPaid = true
+        updatedInvoice.paymentDate = Date()
+        
+        CoreDataManager.shared.updateInvoice(updatedInvoice)
+        loadInvoices()
     }
 }

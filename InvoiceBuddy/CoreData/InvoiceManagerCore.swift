@@ -1,12 +1,185 @@
-//
-//  ScannedInvoiceData.swift
-//  InvoiceBuddy
-//
-//  Created by Iulian Bucatariu on 06.03.2025.
-//
+// InvoiceModel.swift
+import Foundation
 
+enum PaymentStatus: String, Codable, CaseIterable {
+    case pending = "Pending"
+    case paid = "Paid"
+    case overdue = "Overdue"
+    
+    var color: String {
+        switch self {
+        case .pending: return "yellow"
+        case .paid: return "green"
+        case .overdue: return "red"
+        }
+    }
+}
 
-// ScannedInvoiceData.swift
+enum PaymentMethod: String, Codable, CaseIterable {
+    case creditCard = "Credit Card"
+    case debitCard = "Debit Card"
+    case bankTransfer = "Bank Transfer"
+    case cash = "Cash"
+    case other = "Other"
+}
+
+struct Invoice: Identifiable, Codable {
+    var id = UUID()
+    var title: String
+    var description: String
+    var amount: Double
+    var dueDate: Date
+    var status: PaymentStatus = .pending
+    var paymentMethod: PaymentMethod?
+    var reminderDate: Date?
+    var barcode: String?
+    var qrData: String?
+    var notes: String?
+    var priority: Int = 0 // Higher number means higher priority
+    var isPaid: Bool = false
+    var paymentDate: Date?
+    var associatedCardId: String?
+    
+    var isOverdue: Bool {
+        if status == .paid {
+            return false
+        }
+        return Date() > dueDate
+    }
+    
+    var formattedAmount: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "$"
+        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+    }
+    
+    var formattedDueDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: dueDate)
+    }
+    
+    var daysUntilDue: Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: Date(), to: dueDate)
+        return components.day ?? 0
+    }
+}
+
+// Card.swift
+import Foundation
+
+enum CardType: String, Codable, CaseIterable {
+    case credit = "Credit"
+    case debit = "Debit"
+}
+
+struct Card: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var type: CardType
+    var lastFourDigits: String
+    var expiryDate: Date
+    var isDefault: Bool = false
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    var formattedExpiryDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/yy"
+        return formatter.string(from: expiryDate)
+    }
+    
+    var maskedNumber: String {
+        return "**** **** **** \(lastFourDigits)"
+    }
+    
+    static func == (lhs: Card, rhs: Card) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
+
+// MonthSetting.swift
+import Foundation
+
+struct MonthSetting: Identifiable, Codable {
+    var id = UUID()
+    var year: Int
+    var month: Int
+    var isCritical: Bool = false
+    var isLowIncome: Bool = false
+    var note: String?
+    var annualExpenses: [AnnualExpense] = []
+    
+    var monthName: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMMM"
+        
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        
+        if let date = Calendar.current.date(from: components) {
+            return dateFormatter.string(from: date)
+        }
+        return ""
+    }
+    
+    var displayName: String {
+        return "\(monthName) \(year)"
+    }
+    
+    var totalAnnualExpenses: Double {
+        return annualExpenses.reduce(0) { $0 + $1.amount }
+    }
+}
+
+struct AnnualExpense: Identifiable, Codable {
+    var id = UUID()
+    var title: String
+    var amount: Double
+    var dueDate: Date
+    
+    var formattedAmount: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencySymbol = "$"
+        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+    }
+    
+    var formattedDueDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: dueDate)
+    }
+}
+
+// PaydayModel.swift
+import Foundation
+
+struct Payday: Identifiable, Codable {
+    var id = UUID()
+    var date: Date
+    
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    var dayOfMonth: Int {
+        return Calendar.current.component(.day, from: date)
+    }
+    
+    var isWeekend: Bool {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return weekday == 1 || weekday == 7  // 1 = Sunday, 7 = Saturday
+    }
+}
+
+// ScannedData.swift
 import Foundation
 
 struct ScannedInvoiceData {
@@ -23,6 +196,16 @@ struct ScannedInvoiceData {
         self.barcode = rawData
         self.qrData = rawData
         parseData()
+    }
+    
+    static func == (lhs: ScannedInvoiceData, rhs: ScannedInvoiceData) -> Bool {
+        return lhs.rawData == rhs.rawData &&
+               lhs.title == rhs.title &&
+               lhs.description == rhs.description &&
+               lhs.amount == rhs.amount &&
+               lhs.dueDate == rhs.dueDate &&
+               lhs.barcode == rhs.barcode &&
+               lhs.qrData == rhs.qrData
     }
     
     mutating func parseData() {
