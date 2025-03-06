@@ -399,7 +399,9 @@
 				DEVELOPMENT_ASSET_PATHS = "\"InvoiceBuddy/Preview Content\"";
 				DEVELOPMENT_TEAM = 6TDKSH49LP;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/iulianb/WorkingDirectory/InvoiceBuddy/InvoiceBuddy/App/info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -430,7 +432,9 @@
 				DEVELOPMENT_ASSET_PATHS = "\"InvoiceBuddy/Preview Content\"";
 				DEVELOPMENT_TEAM = 6TDKSH49LP;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/iulianb/WorkingDirectory/InvoiceBuddy/InvoiceBuddy/App/info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
