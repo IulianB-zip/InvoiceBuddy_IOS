@@ -100,10 +100,9 @@ struct ScannerView: View {
                 }
             }
             .navigationTitle("Scan Invoice")
-            .onChange(of: scannedData) { newValue in
+            .onChange(of: errorMessage) { oldValue, newValue in
                 if newValue != nil {
-                    // Process scanned data
-                    showingAddInvoice = true
+                    showError = true
                 }
             }
             .sheet(isPresented: $showingAddInvoice) {
@@ -121,9 +120,10 @@ struct ScannerView: View {
                     dismissButton: .default(Text("OK"))
                 )
             }
-            .onChange(of: errorMessage) { newValue in
+            .onChange(of: scannedData) { oldValue, newValue in
                 if newValue != nil {
-                    showError = true
+                    // Process scanned data
+                    showingAddInvoice = true
                 }
             }
         }
@@ -156,58 +156,100 @@ struct ScannerView: View {
 
 // A view that displays a frame for the user to position the QR code/barcode
 struct ScanFrameView: View {
+    // Frame size - can be customized or passed as parameters
+    var frameWidth: CGFloat = 250
+    var frameHeight: CGFloat = 250
+    var cornerLength: CGFloat = 30
+    var lineWidth: CGFloat = 5
+    
     var body: some View {
         ZStack {
+            // Main frame outline
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white, lineWidth: 3)
+                .stroke(Color.white.opacity(0.8), lineWidth: 3)
+                .frame(width: frameWidth, height: frameHeight)
             
             // Corner brackets
-            ForEach(0..<4) { corner in
-                Path { path in
-                    let size: CGFloat = 30
-                    let cornerRadius: CGFloat = 12
-                    let width: CGFloat = 3
+            VStack {
+                HStack {
+                    // Top-left corner
+                    CornerView(cornerLocation: .topLeft)
                     
-                    var x: CGFloat = -125 + cornerRadius
-                    var y: CGFloat = -125 + cornerRadius
+                    Spacer()
                     
-                    if corner == 1 || corner == 3 {
-                        x = 125 - cornerRadius - size
-                    }
-                    if corner == 2 || corner == 3 {
-                        y = 125 - cornerRadius - size
-                    }
-                    
-                    var startAngle: CGFloat = 0
-                    var endAngle: CGFloat = 0
-                    
-                    switch corner {
-                    case 0: // Top left
-                        startAngle = .pi
-                        endAngle = 3 * .pi / 2
-                    case 1: // Top right
-                        startAngle = 3 * .pi / 2
-                        endAngle = 0
-                    case 2: // Bottom left
-                        startAngle = .pi / 2
-                        endAngle = .pi
-                    case 3: // Bottom right
-                        startAngle = 0
-                        endAngle = .pi / 2
-                    default:
-                        break
-                    }
-                    
-                    path.addArc(
-                        center: CGPoint(x: x, y: y),
-                        radius: cornerRadius,
-                        startAngle: Angle(radians: Double(startAngle)),
-                        endAngle: Angle(radians: Double(endAngle)),
-                        clockwise: false
-                    )
+                    // Top-right corner
+                    CornerView(cornerLocation: .topRight)
                 }
-                .stroke(Color.green, lineWidth: 5)
+                
+                Spacer()
+                
+                HStack {
+                    // Bottom-left corner
+                    CornerView(cornerLocation: .bottomLeft)
+                    
+                    Spacer()
+                    
+                    // Bottom-right corner
+                    CornerView(cornerLocation: .bottomRight)
+                }
             }
+            .frame(width: frameWidth, height: frameHeight)
+        }
+    }
+    
+    // Corner location enum
+    enum CornerLocation {
+        case topLeft, topRight, bottomLeft, bottomRight
+    }
+    
+    // Individual corner view
+    struct CornerView: View {
+        var cornerLocation: CornerLocation
+        
+        var body: some View {
+            ZStack {
+                // Horizontal line
+                Rectangle()
+                    .fill(Color.green)
+                    .frame(width: 30, height: 5)
+                    .offset(x: horizontalOffset, y: 0)
+                
+                // Vertical line
+                Rectangle()
+                    .fill(Color.green)
+                    .frame(width: 5, height: 30)
+                    .offset(x: 0, y: verticalOffset)
+            }
+        }
+        
+        // Calculate offsets based on corner location
+        private var horizontalOffset: CGFloat {
+            switch cornerLocation {
+            case .topLeft, .bottomLeft:
+                return 12.5
+            case .topRight, .bottomRight:
+                return -12.5
+            }
+        }
+        
+        private var verticalOffset: CGFloat {
+            switch cornerLocation {
+            case .topLeft, .topRight:
+                return 12.5
+            case .bottomLeft, .bottomRight:
+                return -12.5
+            }
+        }
+    }
+}
+
+struct ScanFrameView_Previews: PreviewProvider {
+    static var previews: some View {
+        ZStack {
+            Color.black.opacity(0.8)
+                .edgesIgnoringSafeArea(.all)
+            
+            ScanFrameView()
         }
     }
 }

@@ -20,6 +20,7 @@ struct SettingsView: View {
     @EnvironmentObject var dataManager: DataManager
     @State private var showingAddPayday = false
     @State private var showingMonthSettings = false
+    @State private var showingCurrencySettings = false
     @State private var newPaydayDate = Date()
     @State private var showingDeleteAllConfirmation = false
     
@@ -54,6 +55,24 @@ struct SettingsView: View {
                         Label("Configure Month Settings", systemImage: "calendar")
                     }
                 }
+                
+                
+                Section(header: Text("Currency")) {
+                    Button(action: {
+                        showingCurrencySettings = true
+                    }) {
+                        HStack {
+                            Label("Default Currency", systemImage: "dollarsign.circle")
+                            
+                            Spacer()
+                            
+                            // Show current default currency
+                            Text("\(dataManager.defaultCurrency.id)")
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                
                 
                 Section(header: Text("Notifications")) {
                     Toggle("Due Date Reminders", isOn: .constant(true))
@@ -94,6 +113,10 @@ struct SettingsView: View {
                     dataManager.savePayday(payday)
                 })
             }
+            .sheet(isPresented: $showingCurrencySettings) {
+                CurrencySettingsView()
+            }
+            
             .alert("Reset All Data", isPresented: $showingDeleteAllConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {

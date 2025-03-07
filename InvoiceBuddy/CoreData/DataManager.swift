@@ -5,9 +5,6 @@
 //  Created by Iulian Bucatariu on 06.03.2025.
 //
 
-
-
-// DataManager.swift
 import Foundation
 import SwiftUI
 import Combine
@@ -19,9 +16,15 @@ class DataManager: ObservableObject {
     @Published var paydays: [Payday] = []
     @Published var isLoading = false
     
+    // Add app settings and default currency
+    @AppStorage("defaultCurrency") private var defaultCurrencyString = Currency.default.rawValue
+    @Published var defaultCurrency = Currency.default
+    
     private var cancellables = Set<AnyCancellable>()
     
     init() {
+        // Set default currency from saved setting
+        defaultCurrency = Currency(rawValue: defaultCurrencyString) ?? .default
         loadAll()
     }
     
@@ -142,7 +145,7 @@ class DataManager: ObservableObject {
             // Create notification content
             let content = UNMutableNotificationContent()
             content.title = "Invoice Payment Reminder"
-            content.body = "\(invoice.title) is due soon. Amount: \(invoice.formattedAmount)"
+            content.body = "\(invoice.title) is due soon. Amount: \(self.formatAmount(invoice.amount))"
             content.sound = .default
             
             // Create trigger based on reminder date
@@ -247,5 +250,39 @@ class DataManager: ObservableObject {
         
         CoreDataManager.shared.updateInvoice(updatedInvoice)
         loadInvoices()
+    }
+    
+    // MARK: - Currency Methods
+    
+    // Update default currency
+    func updateDefaultCurrency(_ currency: Currency) {
+        defaultCurrency = currency
+        defaultCurrencyString = currency.rawValue
+    }
+    
+    // Format amount using default currency
+    func formatAmount(_ amount: Double) -> String {
+        return defaultCurrency.formatAmount(amount)
+    }
+    
+    // Create a new invoice with default values including currency
+    func createNewInvoice() -> Invoice {
+        return Invoice(
+            id: UUID(),
+            title: "",
+            description: "",
+            amount: 0.0,
+            dueDate: Date(),
+            status: .pending,
+            paymentMethod: nil,
+            reminderDate: nil,
+            barcode: nil,
+            qrData: nil,
+            notes: nil,
+            priority: 0,
+            isPaid: false,
+            paymentDate: nil,
+            associatedCardId: nil
+        )
     }
 }

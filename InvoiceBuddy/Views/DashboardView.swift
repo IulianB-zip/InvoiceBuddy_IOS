@@ -39,7 +39,7 @@ struct DashboardView: View {
                         
                         SummaryCard(
                             title: "This Month",
-                            value: dataManager.getTotalDueThisMonth().formatted(.currency(code: "USD")),
+                            value: dataManager.defaultCurrency.formatAmount(dataManager.getTotalDueThisMonth()),
                             color: .green,
                             systemImage: "dollarsign.circle"
                         )
