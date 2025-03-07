@@ -8,8 +8,6 @@
 import Foundation
 import CoreData
 
-// Rest of the file remains the same as in the original document
-
 class CoreDataManager {
     static let shared = CoreDataManager()
     
@@ -64,6 +62,9 @@ class CoreDataManager {
         invoiceEntity.paymentDate = invoice.paymentDate
         invoiceEntity.associatedCardId = invoice.associatedCardId
         
+        // Once you add currency field to your Core Data model, you can uncomment this:
+        // invoiceEntity.currency = invoice.currency.rawValue
+        
         do {
             try context.save()
         } catch {
@@ -94,12 +95,24 @@ class CoreDataManager {
                     isPaid: entity.isPaid,
                     paymentDate: entity.paymentDate,
                     associatedCardId: entity.associatedCardId
+                    
+                    // Once you add currency to your Invoice struct, you can uncomment this:
+                    // currency: getCurrencyFrom(entity)
                 )
             }
         } catch {
             print("Failed to fetch invoices: \(error.localizedDescription)")
             return []
         }
+    }
+    
+    // Helper method to get currency from entity (for when you add currency to Core Data model)
+    private func getCurrencyFrom(_ entity: InvoiceEntity) -> Currency {
+        // Once you add currency field to your Core Data model, you can replace this:
+        return Currency.default
+        
+        // With this:
+        // return Currency(rawValue: entity.currency ?? "") ?? .default
     }
     
     func deleteInvoice(id: UUID) {
@@ -140,6 +153,9 @@ class CoreDataManager {
                 invoiceEntity.isPaid = invoice.isPaid
                 invoiceEntity.paymentDate = invoice.paymentDate
                 invoiceEntity.associatedCardId = invoice.associatedCardId
+                
+                // Once you add currency field to your Core Data model, you can uncomment this:
+                // invoiceEntity.currency = invoice.currency.rawValue
                 
                 try context.save()
             }
@@ -257,6 +273,8 @@ class CoreDataManager {
             expenseEntity.title = expense.title
             expenseEntity.amount = expense.amount
             expenseEntity.dueDate = expense.dueDate
+            // Once you add currency field to your Core Data model, uncomment this:
+            // expenseEntity.currency = expense.currency.rawValue
             expenseEntity.monthSetting = settingEntity
         }
         
@@ -279,6 +297,8 @@ class CoreDataManager {
                         id: expenseEntity.id ?? UUID(),
                         title: expenseEntity.title ?? "",
                         amount: expenseEntity.amount,
+                        // Once you add currency to your AnnualExpense struct, uncomment this and add currency param
+                        // currency: Currency(rawValue: expenseEntity.currency ?? "") ?? .default,
                         dueDate: expenseEntity.dueDate ?? Date()
                     )
                 } ?? []
@@ -312,6 +332,8 @@ class CoreDataManager {
                         id: expenseEntity.id ?? UUID(),
                         title: expenseEntity.title ?? "",
                         amount: expenseEntity.amount,
+                        // Once you add currency to your AnnualExpense struct, uncomment this and add currency param
+                        // currency: Currency(rawValue: expenseEntity.currency ?? "") ?? .default,
                         dueDate: expenseEntity.dueDate ?? Date()
                     )
                 } ?? []
@@ -360,6 +382,8 @@ class CoreDataManager {
                     expenseEntity.title = expense.title
                     expenseEntity.amount = expense.amount
                     expenseEntity.dueDate = expense.dueDate
+                    // Once you add currency field to your Core Data model, uncomment this:
+                    // expenseEntity.currency = expense.currency.rawValue
                     expenseEntity.monthSetting = entity
                 }
                 
@@ -418,4 +442,57 @@ class CoreDataManager {
             print("Failed to delete payday: \(error.localizedDescription)")
         }
     }
+    
+    // MARK: - App Settings Methods
+    
+    func saveAppSettings(_ settings: AppSettings) {
+        let context = persistentContainer.viewContext
+        
+        // Try to find existing settings first
+        let fetchRequest: NSFetchRequest<AppSettingsEntity> = AppSettingsEntity.fetchRequest()
+        
+        do {
+            let results = try context.fetch(fetchRequest)
+            let settingsEntity: AppSettingsEntity
+            
+            if let existingSettings = results.first {
+                // Update existing settings
+                settingsEntity = existingSettings
+            } else {
+                // Create new settings
+                settingsEntity = AppSettingsEntity(context: context)
+                settingsEntity.id = settings.id
+            }
+            
+            settingsEntity.defaultCurrency = settings.defaultCurrency.rawValue
+            
+            try context.save()
+        } catch {
+            print("Failed to save app settings: \(error.localizedDescription)")
+        }
+    }
+    
+    func fetchAppSettings() -> AppSettings {
+        let context = persistentContainer.viewContext
+        let fetchRequest: NSFetchRequest<AppSettingsEntity> = AppSettingsEntity.fetchRequest()
+        
+        do {
+            let results = try context.fetch(fetchRequest)
+            if let settingsEntity = results.first, let currencyCode = settingsEntity.defaultCurrency {
+                return AppSettings(
+                    id: settingsEntity.id ?? UUID(),
+                    defaultCurrency: Currency(rawValue: currencyCode) ?? .default
+                )
+            } else {
+                // No settings found, create default
+                let defaultSettings = AppSettings.defaultSettings
+                saveAppSettings(defaultSettings)
+                return defaultSettings
+            }
+        } catch {
+            print("Failed to fetch app settings: \(error.localizedDescription)")
+            return AppSettings.defaultSettings
+        }
+    }
 }
+

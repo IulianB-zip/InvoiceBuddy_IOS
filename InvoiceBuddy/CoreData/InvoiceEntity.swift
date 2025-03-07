@@ -11,10 +11,9 @@ import CoreData
 // Custom extensions for additional functionality
 extension InvoiceEntity {
     var formattedAmount: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "$"
-        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+        // Get currency from the stored code
+        let currencyEnum = Currency.from(code: currency)
+        return currencyEnum.formatAmount(amount)
     }
     
     var formattedDueDate: String {
@@ -22,6 +21,17 @@ extension InvoiceEntity {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: dueDate)
+    }
+    
+    // Helper property to get currency symbol
+    var currencySymbol: String {
+        let currencyEnum = Currency.from(code: currency)
+        return currencyEnum.id
+    }
+    
+    // Helper to get the Currency enum
+    var currencyEnum: Currency {
+        return Currency.from(code: currency)
     }
 }
 
@@ -42,9 +52,20 @@ extension MonthSettingEntity {
 
 extension AnnualExpenseEntity {
     var formattedExpenseAmount: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+        // Get currency from the stored code
+        let currencyEnum = Currency.from(code: currency)
+        return currencyEnum.formatAmount(amount)
+    }
+    
+    // Helper property to get currency symbol
+    var currencySymbol: String {
+        let currencyEnum = Currency.from(code: currency)
+        return currencyEnum.id
+    }
+    
+    // Helper to get the Currency enum
+    var currencyEnum: Currency {
+        return Currency.from(code: currency)
     }
 }
 
