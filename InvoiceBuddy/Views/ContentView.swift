@@ -29,7 +29,7 @@ struct ContentView: View {
                 }
                 .tag(1)
             
-            ScannerView()
+            ImprovedScannerView()
                 .environmentObject(dataManager)
                 .tabItem {
                     Label("Scan", systemImage: "camera")

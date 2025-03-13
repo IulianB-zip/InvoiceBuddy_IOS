@@ -1,10 +1,3 @@
-//
-//  CurrencyPicker.swift
-//  InvoiceMate
-//
-//  Created by Iulian Bucatariu on 07.03.2025.
-//
-
 import SwiftUI
 
 struct CurrencyPicker: View {

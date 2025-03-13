@@ -200,20 +200,3 @@ struct InvoiceDetailView: View {
     }
 }
 
-struct DetailRow: View {
-    var key: String
-    var value: String
-    
-    var body: some View {
-        HStack {
-            Text(key)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.subheadline)
-        }
-    }
-}

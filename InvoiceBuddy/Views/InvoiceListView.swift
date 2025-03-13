@@ -199,28 +199,3 @@ struct InvoiceRow: View {
         }
     }
 }
-
-struct StatusIndicator: View {
-    let status: PaymentStatus
-    
-    var body: some View {
-        Text(status.rawValue)
-            .font(.caption)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(backgroundColor)
-            .foregroundColor(.white)
-            .cornerRadius(4)
-    }
-    
-    var backgroundColor: Color {
-        switch status {
-        case .pending:
-            return .blue
-        case .paid:
-            return .green
-        case .overdue:
-            return .red
-        }
-    }
-}
