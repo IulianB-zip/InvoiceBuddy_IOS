@@ -5,30 +5,18 @@
 //  Created by Iulian Bucatariu on 13.03.2025.
 //
 
+// InvoiceBuddyApp.swift
 import SwiftUI
 import AVFoundation
-import PhotosUI
 
 @main
 struct InvoiceBuddyApp: App {
-    // Shared data manager that can be accessed throughout the app
-    @StateObject private var dataManager = DataManager()
-    
     var body: some Scene {
         WindowGroup {
-            // Use the completely fixed tab view
-            CompleteMainTabView()
-                .environmentObject(dataManager)
+            ContentView()
                 .onAppear {
-                    // Initial data loading
-                    dataManager.loadAll()
-                    
                     // Request camera permissions early
                     requestCameraPermission()
-                    
-                    // Force extend background to edges on all screens
-                    UITabBar.appearance().backgroundColor = UIColor.clear
-                    UITabBar.appearance().isTranslucent = true
                 }
         }
     }

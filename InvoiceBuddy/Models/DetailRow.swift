@@ -8,6 +8,7 @@
 
 import SwiftUI
 
+// Your existing DetailRow structure
 struct DetailRow: View {
     var key: String
     var value: String
@@ -25,16 +26,5 @@ struct DetailRow: View {
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 4)
-    }
-}
-
-struct DetailRow_Previews: PreviewProvider {
-    static var previews: some View {
-        List {
-            DetailRow(key: "Due Date", value: "March 20, 2025")
-            DetailRow(key: "Amount", value: "$123.45")
-            DetailRow(key: "Payment Method", value: "Credit Card")
-        }
-        .previewLayout(.sizeThatFits)
     }
 }

@@ -1,13 +1,13 @@
+// ImprovedScannerView.swift
 import SwiftUI
 import AVFoundation
 import Vision
 import Combine
 import PhotosUI
 
-/// A completely redesigned scanner view that properly positions all elements
-/// with significant padding to avoid any overlap with the tab bar
 struct ImprovedScannerView: View {
     @EnvironmentObject var dataManager: DataManager
+    @State private var isScanning = false
     @State private var capturedImage: UIImage?
     @State private var extractedInvoiceData: InvoiceData?
     @State private var showingAddInvoice = false
@@ -17,183 +17,300 @@ struct ImprovedScannerView: View {
     @State private var showError = false
     @State private var showPreviewSheet = false
     
+    // For photo picker
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    
     private let scanner = EnhancedInvoiceScanner()
     
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Camera view
-                CameraSessionView(
-                    capturedImage: $capturedImage,
-                    flashOn: $flashOn,
-                    errorMessage: $errorMessage
-                )
-                .edgesIgnoringSafeArea(.all)
-                
-                // Content overlay
-                VStack(spacing: 0) {
-                    // Scan frame area
-                    Spacer()
-                    
-                    // Scan frame with instruction
-                    ScanFrameWithInstruction(
-                        frameWidth: min(geometry.size.width - 40, 300),
-                        // Calculate safe height to ensure nothing overlaps with tab bar
-                        availableHeight: geometry.size.height * 0.8
-                    )
-                    
-                    // Significant spacer at bottom to prevent any overlap
-                    Spacer()
-                        .frame(height: geometry.size.height * 0.2) // Reserve 20% of screen height for tab bar area
-                }
-                
-                // Processing overlay
-                if isProcessing {
-                    Color.black.opacity(0.7)
-                        .edgesIgnoringSafeArea(.all)
-                    
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        
-                        Text("Processing invoice...")
-                            .font(.headline)
-                            .foregroundColor(.white)
+        mainNavigationView
+    }
+    
+    // MARK: - Main View Components
+    
+    // The main navigation view containing everything
+    private var mainNavigationView: some View {
+        NavigationView {
+            mainContent
+                .navigationTitle("Invoice Scanner")
+                .onChange(of: capturedImage) { _, newImage in
+                    if let image = newImage {
+                        processImage(image)
                     }
                 }
+                .onChange(of: errorMessage) { _, newValue in
+                    if newValue != nil {
+                        showError = true
+                    }
+                }
+                .sheet(isPresented: $showPreviewSheet) {
+                    if let data = extractedInvoiceData {
+                        InvoiceDataPreviewView(
+                            invoiceData: data,
+                            capturedImage: capturedImage,
+                            onAddInvoice: handleAddInvoice,
+                            onCancel: handleCancelPreview
+                        )
+                    }
+                }
+                .sheet(isPresented: $showingAddInvoice) {
+                    addInvoiceView
+                }
+                .alert(isPresented: $showError) {
+                    Alert(
+                        title: Text("Scanning Error"),
+                        message: Text(errorMessage ?? "Unknown error occurred"),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
+        }
+    }
+    
+    // The main content switching between scanning and welcome screens
+    private var mainContent: some View {
+        VStack {
+            if isScanning {
+                scanningView
+            } else {
+                welcomeView
             }
         }
-        .onAppear {
-            checkCameraPermission()
-        }
-        .onChange(of: capturedImage) { _, newImage in
-            if let image = newImage {
-                processImage(image)
-            }
-        }
-        .onChange(of: errorMessage) { _, newValue in
-            if newValue != nil {
-                showError = true
-            }
-        }
-        .sheet(isPresented: $showPreviewSheet) {
+    }
+    
+    // View that is shown when adding an invoice from scanned data
+    private var addInvoiceView: some View {
+        Group {
             if let data = extractedInvoiceData {
-                InvoiceDataPreviewView(
-                    invoiceData: data,
-                    capturedImage: capturedImage,
-                    onAddInvoice: { invoice in
-                        dataManager.saveInvoice(invoice)
-                        cleanupAfterPreview()
-                    },
-                    onCancel: cleanupAfterPreview
-                )
-            }
-        }
-        .sheet(isPresented: $showingAddInvoice) {
-            if let data = extractedInvoiceData {
-                let scannedData = createScannedData(from: data)
-                AddInvoiceView(prefillData: scannedData)
+                // Only pass the rawData parameter since that's the only one accepted
+                AddInvoiceView(prefillData: ScannedInvoiceData(
+                    rawData: data.rawText ?? ""
+                    // No other parameters are accepted by your initializer
+                ))
             } else {
                 AddInvoiceView()
             }
         }
-        .alert(isPresented: $showError) {
-            Alert(
-                title: Text("Scanning Error"),
-                message: Text(errorMessage ?? "Unknown error occurred"),
-                dismissButton: .default(Text("OK"))
+    }
+
+    
+    // MARK: - Scanning UI
+    
+    // Scanning view when camera is active
+    private var scanningView: some View {
+        ZStack {
+            CustomCameraView(
+                capturedImage: $capturedImage,
+                isScanning: $isScanning,
+                errorMessage: $errorMessage,
+                flashOn: $flashOn
             )
+            .edgesIgnoringSafeArea(.all)
+            
+            scanningOverlay
+            
+            // Processing overlay
+            if isProcessing {
+                processingOverlay
+            }
         }
     }
     
-    /// Combined scan frame and instruction component with proper spacing
-    struct ScanFrameWithInstruction: View {
-        let frameWidth: CGFloat
-        let availableHeight: CGFloat
-        
-        var body: some View {
-            VStack(spacing: 20) { // Important: increased spacing between frame and text
-                // Scan frame with transparent background
-                ZStack {
-                    // White border
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white, lineWidth: 2)
-                        .frame(width: frameWidth, height: min(frameWidth * 1.4, availableHeight * 0.75))
-                        .overlay(
-                            ScanCornerMarkers()
-                        )
-                }
-                
-                // Instruction text - with dark capsule background
-                Text("Position the invoice inside the frame")
-                    .font(.subheadline)
+    // Overlay controls for scanning
+    private var scanningOverlay: some View {
+        VStack {
+            Spacer()
+            
+            // Larger scan overlay frame with guide text
+            ImprovedScanFrameView()
+                .frame(width: 320, height: 450)
+            
+            Spacer()
+            
+            // Camera controls row with flash toggle
+            cameraControls
+        }
+    }
+    
+    // Camera control buttons
+    private var cameraControls: some View {
+        HStack(spacing: 50) {
+            Button(action: {
+                isScanning = false
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 30))
                     .foregroundColor(.white)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.7))
+            }
+            .shadow(radius: 2)
+            
+            // Prominent capture button
+            Button(action: {
+                // Trigger photo capture
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TakePhoto"),
+                    object: nil
+                )
+            }) {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.8), lineWidth: 3)
+                            .frame(width: 88, height: 88)
                     )
-                    .padding(.bottom, 40) // Extra padding below text
+            }
+            .shadow(radius: 3)
+            .accessibility(label: Text("Take Photo"))
+            
+            // Flash toggle button
+            Button(action: {
+                flashOn.toggle()
+            }) {
+                Image(systemName: flashOn ? "bolt.fill" : "bolt.slash.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(.white)
+            }
+            .shadow(radius: 2)
+        }
+        .padding(.bottom, 40)
+    }
+    
+    // Processing overlay
+    private var processingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.7)
+                .edgesIgnoringSafeArea(.all)
+            
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                
+                Text("Processing invoice...")
+                    .font(.headline)
+                    .foregroundColor(.white)
             }
         }
     }
     
-    /// Corner markers for scan frame
-    struct ScanCornerMarkers: View {
-        var body: some View {
-            GeometryReader { geometry in
-                ZStack {
-                    // Top-left corner
-                    CornerMark()
-                        .position(x: 15, y: 15)
-                    
-                    // Top-right corner
-                    CornerMark(rotation: 90)
-                        .position(x: geometry.size.width - 15, y: 15)
-                    
-                    // Bottom-left corner
-                    CornerMark(rotation: 270)
-                        .position(x: 15, y: geometry.size.height - 15)
-                    
-                    // Bottom-right corner
-                    CornerMark(rotation: 180)
-                        .position(x: geometry.size.width - 15, y: geometry.size.height - 15)
+    // MARK: - Welcome UI
+    
+    // Welcome screen with instructions and options
+    private var welcomeView: some View {
+        VStack(spacing: 25) {
+            Image(systemName: "doc.viewfinder")
+                .font(.system(size: 80))
+                .foregroundColor(.blue)
+            
+            Text("Scan Invoice")
+                .font(.title)
+                .fontWeight(.bold)
+            
+            Text("Position the invoice within the camera frame.\nThe app will automatically detect dates, amounts, and other details.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            scanButton
+            
+            photoPickerButton
+            
+            // Manual entry option
+            Button(action: {
+                showingAddInvoice = true
+            }) {
+                Text("Enter Manually")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .padding()
+            }
+        }
+        .padding()
+    }
+    
+    // Button to start scanning
+    private var scanButton: some View {
+        Button(action: {
+            checkCameraPermission()
+        }) {
+            HStack {
+                Image(systemName: "camera")
+                Text("Start Scanning")
+            }
+            .font(.headline)
+            .foregroundColor(.white)
+            .padding()
+            .background(Color.blue)
+            .cornerRadius(10)
+        }
+        .padding(.top)
+    }
+    
+    // Photo picker for selecting existing photos
+    private var photoPickerButton: some View {
+        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            HStack {
+                Image(systemName: "photo")
+                Text("Select from Photos")
+            }
+            .font(.subheadline)
+            .foregroundColor(.blue)
+            .padding()
+        }
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            if let newItem = newItem {
+                loadTransferable(from: newItem)
+            }
+        }
+    }
+    
+    // MARK: - Action Methods
+    
+    private func handleAddInvoice(_ invoice: Invoice) {
+        dataManager.saveInvoice(invoice)
+        extractedInvoiceData = nil
+        capturedImage = nil
+        showPreviewSheet = false
+    }
+    
+    private func handleCancelPreview() {
+        extractedInvoiceData = nil
+        capturedImage = nil
+        showPreviewSheet = false
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func loadTransferable(from photoItem: PhotosPickerItem) {
+        photoItem.loadTransferable(type: Data.self) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    // Unwrap the optional data
+                    if let imageData = data, let image = UIImage(data: imageData) {
+                        self.capturedImage = image
+                    } else {
+                        self.errorMessage = "Could not create image from selected photo"
+                    }
+                case .failure(let error):
+                    self.errorMessage = "Error loading photo: \(error.localizedDescription)"
                 }
             }
         }
     }
-    
-    /// Individual corner mark
-    struct CornerMark: View {
-        var rotation: Double = 0
-        
-        var body: some View {
-            ZStack {
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 15))
-                    path.addLine(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: 15, y: 0))
-                }
-                .stroke(Color.white, lineWidth: 2)
-                .rotationEffect(.degrees(rotation))
-            }
-            .frame(width: 30, height: 30)
-        }
-    }
-    
-    // MARK: - Actions
-    
     private func checkCameraPermission() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            break
+            isScanning = true
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
-                if !granted {
-                    DispatchQueue.main.async {
-                        self.errorMessage = "Camera permission is required to scan invoices"
+                DispatchQueue.main.async {
+                    if granted {
+                        isScanning = true
+                    } else {
+                        errorMessage = "Camera permission is required to scan invoices"
                     }
                 }
             }
@@ -229,364 +346,17 @@ struct ImprovedScannerView: View {
             .store(in: &CancellationTokenBag.shared.tokens)
     }
     
-    private func cleanupAfterPreview() {
-        extractedInvoiceData = nil
-        capturedImage = nil
-        showPreviewSheet = false
-    }
-    
-    private func createScannedData(from data: InvoiceData) -> ScannedInvoiceData {
-        var scannedData = ScannedInvoiceData(rawData: data.rawText ?? "")
-        
-        if data.title != "Scanned Invoice" {
-            scannedData.title = data.title
-        }
-        scannedData.description = data.sender
-        scannedData.amount = data.amount
-        scannedData.dueDate = data.dueDate
-        scannedData.barcode = data.barcode
-        scannedData.qrData = data.qrData
-        
-        return scannedData
-    }
-    
     private func hasMinimumRequiredData(_ data: InvoiceData) -> Bool {
+        // Check if we have enough meaningful data to show preview
         return data.amount != nil &&
                (data.dueDate != nil || data.issueDate != nil) &&
                !data.title.isEmpty
     }
 }
 
-/// A dedicated camera handling view that doesn't attempt to add any UI elements
-struct CameraSessionView: UIViewControllerRepresentable {
-    @Binding var capturedImage: UIImage?
-    @Binding var flashOn: Bool
-    @Binding var errorMessage: String?
-    
-    func makeUIViewController(context: Context) -> CameraSessionViewController {
-        let controller = CameraSessionViewController()
-        controller.delegate = context.coordinator
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: CameraSessionViewController, context: Context) {
-        uiViewController.setFlashEnabled(flashOn)
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, CameraSessionDelegate {
-        var parent: CameraSessionView
-        
-        init(_ parent: CameraSessionView) {
-            self.parent = parent
-        }
-        
-        func cameraSession(_ session: CameraSessionViewController, didCaptureImage image: UIImage?) {
-            parent.capturedImage = image
-        }
-        
-        func cameraSession(_ session: CameraSessionViewController, didFailWithError error: Error) {
-            parent.errorMessage = error.localizedDescription
-        }
-    }
-}
-
-protocol CameraSessionDelegate: AnyObject {
-    func cameraSession(_ session: CameraSessionViewController, didCaptureImage image: UIImage?)
-    func cameraSession(_ session: CameraSessionViewController, didFailWithError error: Error)
-}
-
-class CameraSessionViewController: UIViewController, AVCapturePhotoCaptureDelegate {
-    weak var delegate: CameraSessionDelegate?
-    
-    private var captureSession: AVCaptureSession!
-    private var previewLayer: AVCaptureVideoPreviewLayer!
-    private var photoOutput: AVCapturePhotoOutput!
-    private var flashEnabled = false
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupCaptureSession()
-        
-        // Add tap gesture to capture photo when tapping on the screen
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        view.addGestureRecognizer(tapGesture)
-    }
-    
-    @objc private func handleTap() {
-        capturePhoto()
-    }
-    
-    private func setupCaptureSession() {
-        captureSession = AVCaptureSession()
-        captureSession.sessionPreset = .high
-        
-        guard let backCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            delegate?.cameraSession(self, didFailWithError: NSError(domain: "CameraError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not find back camera"]))
-            return
-        }
-        
-        do {
-            let input = try AVCaptureDeviceInput(device: backCamera)
-            
-            if captureSession.canAddInput(input) {
-                captureSession.addInput(input)
-            } else {
-                delegate?.cameraSession(self, didFailWithError: NSError(domain: "CameraError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not add camera input"]))
-                return
-            }
-            
-            photoOutput = AVCapturePhotoOutput()
-            
-            if captureSession.canAddOutput(photoOutput) {
-                captureSession.addOutput(photoOutput)
-                
-                previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-                previewLayer.videoGravity = .resizeAspectFill
-                previewLayer.frame = view.layer.bounds
-                view.layer.addSublayer(previewLayer)
-                
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    self?.captureSession.startRunning()
-                }
-            } else {
-                delegate?.cameraSession(self, didFailWithError: NSError(domain: "CameraError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not add photo output"]))
-            }
-        } catch {
-            delegate?.cameraSession(self, didFailWithError: error)
-        }
-    }
-    
-    func setFlashEnabled(_ enabled: Bool) {
-        flashEnabled = enabled
-    }
-    
-    func capturePhoto() {
-        guard captureSession.isRunning else {
-            delegate?.cameraSession(self, didFailWithError: NSError(domain: "CameraError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Camera session not running"]))
-            return
-        }
-        
-        let settings = AVCapturePhotoSettings()
-        settings.flashMode = flashEnabled ? .on : .off
-        
-        photoOutput.capturePhoto(with: settings, delegate: self)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        if let error = error {
-            delegate?.cameraSession(self, didFailWithError: error)
-            return
-        }
-        
-        guard let imageData = photo.fileDataRepresentation(),
-              let image = UIImage(data: imageData) else {
-            delegate?.cameraSession(self, didFailWithError: NSError(domain: "CameraError", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to process captured image"]))
-            return
-        }
-        
-        delegate?.cameraSession(self, didCaptureImage: image)
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        previewLayer?.frame = view.layer.bounds
-    }
-    
-    deinit {
-        if captureSession?.isRunning == true {
-            captureSession.stopRunning()
-        }
-    }
-}
-
-
-
-// MARK: - Sub-Views
-
-struct ScanningModeView: View {
-    @Binding var capturedImage: UIImage?
-    @Binding var isScanning: Bool
-    @Binding var errorMessage: String?
-    @Binding var flashOn: Bool
-    var isProcessing: Bool
-    
-    var body: some View {
-        ZStack {
-            // Camera view
-            EnhancedCameraView(
-                capturedImage: $capturedImage,
-                isScanning: $isScanning,
-                errorMessage: $errorMessage,
-                flashOn: $flashOn
-            )
-            .edgesIgnoringSafeArea(.all)
-            
-            // Overlay content
-            VStack {
-                Spacer()
-                
-                // Scan frame
-                CleanScannerView()
-                    .frame(width: 280, height: 400)
-                
-                Spacer()
-                
-                // Controls
-                ScanControlsView(
-                    isScanning: $isScanning,
-                    flashOn: $flashOn
-                )
-            }
-            
-            // Processing overlay
-            if isProcessing {
-                ProcessingOverlayView()
-            }
-        }
-    }
-}
-
-struct ScanControlsView: View {
-    @Binding var isScanning: Bool
-    @Binding var flashOn: Bool
-    
-    var body: some View {
-        HStack {
-            // Cancel button
-            Button(action: {
-                isScanning = false
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundColor(.white)
-                    .padding()
-            }
-            
-            Spacer()
-            
-            // Capture button
-            Button(action: {
-                NotificationCenter.default.post(name: NSNotification.Name("TakePhoto"), object: nil)
-            }) {
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 70, height: 70)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.8), lineWidth: 2)
-                            .frame(width: 80, height: 80)
-                    )
-            }
-            .accessibility(label: Text("Capture Image"))
-            
-            Spacer()
-            
-            // Flash button
-            Button(action: {
-                flashOn.toggle()
-            }) {
-                Image(systemName: flashOn ? "bolt.fill" : "bolt.slash.fill")
-                    .font(.system(size: 30))
-                    .foregroundColor(.white)
-                    .padding()
-            }
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 30)
-    }
-}
-
-struct ProcessingOverlayView: View {
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.7)
-                .edgesIgnoringSafeArea(.all)
-            
-            VStack(spacing: 20) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                
-                Text("Processing invoice...")
-                    .font(.headline)
-                    .foregroundColor(.white)
-            }
-        }
-    }
-}
-
-struct WelcomeModeView: View {
-    var checkCameraPermission: () -> Void
-    @Binding var selectedPhotoItem: PhotosPickerItem?
-    var onPhotoSelected: (PhotosPickerItem) -> Void
-    @Binding var showingAddInvoice: Bool
-    
-    var body: some View {
-        VStack(spacing: 25) {
-            Image(systemName: "doc.viewfinder")
-                .font(.system(size: 80))
-                .foregroundColor(.blue)
-            
-            Text("Scan Invoice")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            Text("Position the invoice within the camera frame.\nThe app will automatically detect dates, amounts, and other details.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            
-            // Camera scan button
-            Button(action: checkCameraPermission) {
-                HStack {
-                    Image(systemName: "camera")
-                    Text("Start Scanning")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(10)
-            }
-            .padding(.top)
-            
-            // Photo picker
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                HStack {
-                    Image(systemName: "photo")
-                    Text("Select from Photos")
-                }
-                .font(.subheadline)
-                .foregroundColor(.blue)
-                .padding()
-            }
-            .onChange(of: selectedPhotoItem) { _, newItem in
-                if let newItem = newItem {
-                    onPhotoSelected(newItem)
-                }
-            }
-            
-            // Manual entry option
-            Button(action: {
-                showingAddInvoice = true
-            }) {
-                Text("Enter Manually")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                    .padding()
-            }
-        }
-        .padding()
-    }
-}
-
 // MARK: - Invoice Data Preview View
 
+// Preview view for extracted invoice data
 struct InvoiceDataPreviewView: View {
     let invoiceData: InvoiceData
     let capturedImage: UIImage?
@@ -598,14 +368,7 @@ struct InvoiceDataPreviewView: View {
     @State private var editedDueDate: Date
     @State private var editedCurrency: Currency
     
-    // Format for display
-    private let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }()
-    
-    // Initialize with invoice data and captured image
+    // Initialize with invoice data
     init(
         invoiceData: InvoiceData,
         capturedImage: UIImage?,
@@ -623,6 +386,12 @@ struct InvoiceDataPreviewView: View {
         _editedCurrency = State(initialValue: invoiceData.currency ?? .chf)
     }
     
+    private let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }()
+    
     var body: some View {
         NavigationView {
             Form {
@@ -637,42 +406,26 @@ struct InvoiceDataPreviewView: View {
                             .multilineTextAlignment(.trailing)
                     }
                     
-                    // Show formatted amount with currency
+                    // Currency picker
+                    CurrencyPicker(selectedCurrency: $editedCurrency)
+                    
+                    // Formatted amount preview
                     HStack {
-                        Text("Currency")
+                        Text("Total")
                         Spacer()
                         Text(editedCurrency.formatAmount(editedAmount))
-                            .foregroundColor(.secondary)
+                            .fontWeight(.bold)
                     }
-                    
-                    // Currency picker with current styling
-                    CurrencyPicker(selectedCurrency: $editedCurrency)
                     
                     DatePicker("Due Date", selection: $editedDueDate, displayedComponents: .date)
                 }
                 
+                // Extracted data section
                 Section(header: Text("Extracted Information")) {
-                    if let issueDate = invoiceData.issueDate {
-                        DetailRow(key: "Issue Date", value: dateFormatter.string(from: issueDate))
-                    }
-                    
-                    if let invoiceNumber = invoiceData.invoiceNumber {
-                        DetailRow(key: "Invoice #", value: invoiceNumber)
-                    }
-                    
-                    if let sender = invoiceData.sender {
-                        DetailRow(key: "From", value: sender)
-                    }
-                    
-                    if let recipient = invoiceData.recipient {
-                        DetailRow(key: "To", value: recipient)
-                    }
-                    
-                    if let paymentInfo = invoiceData.paymentInfo {
-                        DetailRow(key: "Payment", value: paymentInfo)
-                    }
+                    extractedInfoSection
                 }
                 
+                // Show the scanned image
                 if let image = capturedImage {
                     Section(header: Text("Scanned Image")) {
                         HStack {
@@ -696,7 +449,7 @@ struct InvoiceDataPreviewView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") {
-                        // Create the invoice with edited data
+                        // Create invoice with edited data
                         var invoice = invoiceData.toInvoice()
                         invoice.title = editedTitle
                         invoice.amount = editedAmount
@@ -705,6 +458,31 @@ struct InvoiceDataPreviewView: View {
                         onAddInvoice(invoice)
                     }
                 }
+            }
+        }
+    }
+    
+    // Extracted information section
+    private var extractedInfoSection: some View {
+        Group {
+            if let issueDate = invoiceData.issueDate {
+                DetailRow(key: "Issue Date", value: dateFormatter.string(from: issueDate))
+            }
+            
+            if let invoiceNumber = invoiceData.invoiceNumber {
+                DetailRow(key: "Invoice #", value: invoiceNumber)
+            }
+            
+            if let sender = invoiceData.sender {
+                DetailRow(key: "From", value: sender)
+            }
+            
+            if let recipient = invoiceData.recipient {
+                DetailRow(key: "To", value: recipient)
+            }
+            
+            if let paymentInfo = invoiceData.paymentInfo {
+                DetailRow(key: "Payment Info", value: paymentInfo)
             }
         }
     }

@@ -401,8 +401,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "InvoiceBuddy needs camera access to scan invoices";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "InvoiceBuddy needs photo library access to import invoices";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required for scanning";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -435,8 +434,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "InvoiceBuddy needs camera access to scan invoices";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "InvoiceBuddy needs photo library access to import invoices";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required for scanning";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
